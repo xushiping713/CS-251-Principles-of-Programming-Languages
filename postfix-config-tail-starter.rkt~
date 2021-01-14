@@ -1,0 +1,98 @@
+#lang racket
+
+;;; PostFix interpreter that uses tail recursion to iterate over a configuration
+;;; consisting of (1) list of commands and (2) list of stack values
+
+;;; This "simple" version omits features that are included in the fancy version:
+;;; 1. appropriate handling of all error cases, 
+;;; 2. the ability to display step-by-step execution,
+;;; 3. a general, extensible way to handle arithops and relops
+
+;; Run the given PostFix program on argument values, which form the initial stack
+(define (postfix-run pgm args)
+  (postfix-exec-config-tail (postfix-commands pgm) args))
+
+;; Use tail recursion to loop over a configuration state consiting of
+;; (1) list of commands and (2) list of stack values
+(define (postfix-exec-config-tail cmds stk)
+  (cond ((null? cmds) 'flesh-this-out)
+        ((eq? (first cmds) 'exec) 'flesh-this-out)
+        ; Continue iteration with next configuration
+        (else (postfix-exec-config-tail (rest cmds)
+                                        (postfix-exec-command (first cmds) stk)))))
+
+;; Execute a non-exec command on a stack to yield a new stack.
+;; So each command can be viewed as a "stack transformer"
+(define (postfix-exec-command cmd stk)
+  (cond ((integer? cmd) 'flesh-this-out)
+        ((eq? cmd 'pop) 'flesh-this-out)
+        ((eq? cmd 'swap) 'flesh-this-out)
+        ;; Can add clauses for new commands here
+        (else (error "unrecognized command" cmd))
+        ))
+
+; CS251 helper function 
+(define (iterate-apply next done? finalize state)
+  (if (apply done? state)
+      (apply finalize state)
+      (iterate-apply next done? finalize (apply next state))))
+
+;;----------------------------------------------------------------------
+;; Postfix Syntax abstractions
+
+(define (postfix-program? sexp)
+  (and (list? sexp)
+       (>= (length sexp) 2)
+       (eq? (first sexp) 'postfix)
+       (integer? (second sexp))
+       (postfix-command-sequence? (rest (rest sexp)))))
+
+(define (postfix-command-sequence? sexp)
+  (and (list? sexp)
+       (forall? postfix-command? sexp)))
+
+(define (postfix-command? sexp)
+  (or (integer? sexp)
+      (postfix-command-sequence? sexp)
+      (member sexp  '(add mul sub div rem ; arithops
+                      lt eq gt ; relops
+                      pop swap nget sel exec)) ; handle all other commands here
+      ))
+
+(define (postfix-numargs pgm) (second pgm))
+(define (postfix-commands pgm) (rest (rest pgm)))
+
+(define (postfix-arguments? sexp)
+  (and (list? sexp)
+       (forall? integer? sexp)))
+
+;; Higher-order helper function from PS4
+(define (forall? pred xs)
+  (if (null? xs)
+      #t
+      (and (pred (first xs))
+           (forall? pred (rest xs)))))
+
+;;----------------------------------------------------------------------
+;;; Examples
+
+;; Sample program from lecture
+(define pf1 '(postfix 2 2 nget 0 gt (sub) (swap 1 nget mul add) sel exec))
+
+;> (postfix-run pf1 '(3 5))
+;15
+;
+;> (postfix-run pf1 '(3 -5))
+;28
+ 
+
+;; Sum-of-squares program 
+(define sos
+  '(postfix 2 ; let's call the arguments a and b, from top down
+            1 nget ; duplicate a at top of stack
+            mul ; square a
+            swap ; stack now has b and a^2 from top down
+            1 nget mul ; square b
+            add ; add b^2 + a^2 and return
+            ))
+

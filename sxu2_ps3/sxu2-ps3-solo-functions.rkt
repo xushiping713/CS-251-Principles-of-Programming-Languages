@@ -1,0 +1,24 @@
+#lang racket
+(provide (all-defined-out))
+
+(define thirdish
+  (λ (int) (* (remainder int 3) (quotient int 3))))
+
+(define half
+  (λ (int) (quotient int 2)))
+
+(define (num-g-calls n)
+  (if (<= n 2)
+      1
+      (+ 1
+         (num-g-calls (thirdish n))
+         (num-g-calls (half n)))))
+
+(define (max-depth-g n)
+  (if (<= n 2)
+      0
+      (+ 1
+         (max
+         (max-depth-g (thirdish n))
+         (max-depth-g (half n))))))
+
